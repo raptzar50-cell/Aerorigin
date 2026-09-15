@@ -1,0 +1,49 @@
+#!/bin/sh
+# Aerogin Pre-Commit Secret Scanner Hook
+# Blocks commits containing sensitive keys, credentials, or .env files.
+
+echo "[pre-commit] Scanning staged files for accidental secrets..."
+
+# 1. Check for forbidden file names
+FORBIDDEN_FILES=$(git diff --cached --name-only | grep -E '(serviceAccountKey\.json|\.env$|\.env\.local$|credentials.*\.json|firebase-adminsdk.*\.json|\.pem$|\.key$|\.p12$)')
+
+# Allow .env.example
+FORBIDDEN_FILES=$(echo "$FORBIDDEN_FILES" | grep -v '\.env\.example$')
+
+if [ -n "$FORBIDDEN_FILES" ]; then
+    echo "================================================================"
+    echo " [BLOCKED] PRE-COMMIT HOOK: SENSITIVE CREDENTIAL FILE DETECTED! "
+    echo "================================================================"
+    echo "The following forbidden file(s) are staged for commit:"
+    echo "$FORBIDDEN_FILES"
+    echo ""
+    echo "Please unstage them with: git rm --cached <file>"
+    echo "Secrets should only be passed via environment variables."
+    exit 1
+fi
+
+# 2. Check diff content for private keys or raw Google/Firebase keys (excluding hooks themselves)
+STAGED_FILES=$(git diff --cached --name-only | grep -v '^\.githooks/')
+
+if [ -n "$STAGED_FILES" ]; then
+    SECRET_DIFF=$(git diff --cached -S"-----BEGIN "PRIVATE" KEY-----" -- $STAGED_FILES)
+    if [ -n "$SECRET_DIFF" ]; then
+        echo "================================================================"
+        echo " [BLOCKED] PRE-COMMIT HOOK: PRIVATE KEY DETECTED IN DIFF!       "
+        echo "================================================================"
+        echo "Staged code diff contains private key headers."
+        exit 1
+    fi
+
+    RAW_KEY_DIFF=$(git diff --cached -S"\"private_key"\" -- $STAGED_FILES)
+    if [ -n "$RAW_KEY_DIFF" ]; then
+        echo "================================================================"
+        echo " [BLOCKED] PRE-COMMIT HOOK: SERVICE ACCOUNT CREDENTIALS DETECTED"
+        echo "================================================================"
+        echo "Staged code diff contains service account credentials."
+        exit 1
+    fi
+fi
+
+echo "[pre-commit] Secret check passed."
+exit 0
