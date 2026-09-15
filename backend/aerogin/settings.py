@@ -120,11 +120,16 @@ DATABASES = {
 # --------------------------------------------------------------------------
 # Firebase Authentication
 # --------------------------------------------------------------------------
-# Path to the Firebase service account JSON key file (for backend token
-# verification via firebase-admin SDK).
-FIREBASE_SERVICE_ACCOUNT_KEY_PATH = config(
-    'FIREBASE_SERVICE_ACCOUNT_KEY_PATH', default=''
+# Option A: Full JSON string in environment variable (recommended for cloud/CI/CD)
+FIREBASE_SERVICE_ACCOUNT_JSON = config('FIREBASE_SERVICE_ACCOUNT_JSON', default='')
+
+# Option B: Path to a local, GITIGNORED service account file (for local development)
+FIREBASE_SERVICE_ACCOUNT_PATH = config(
+    'FIREBASE_SERVICE_ACCOUNT_PATH',
+    default=config('FIREBASE_SERVICE_ACCOUNT_KEY_PATH', default='')
 )
+
+# Firebase Project ID
 FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='')
 
 # Development bypass — set to True ONLY in development when Firebase is

@@ -49,13 +49,56 @@ python manage.py migrate
 
 ```bash
 # 1. Create a Firebase project at https://console.firebase.google.com
-# 2. Enable Email/Password authentication in Firebase Console
-# 3. Download the service account JSON key file
-# 4. Set environment variables in .env:
-#    FIREBASE_SERVICE_ACCOUNT_KEY_PATH=/path/to/serviceAccountKey.json
+# 2. Enable Email/Password and Google authentication in Firebase Console
+# 3. Generate your service account JSON key file (see Secrets & Credentials section below)
+# 4. Set environment variables in backend/.env:
+#    Option A (local dev path):
+#    FIREBASE_SERVICE_ACCOUNT_PATH=c:/path/to/your/gitignored/serviceAccountKey.json
+#
+#    Option B (cloud/CI single string):
+#    FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+#
 #    FIREBASE_PROJECT_ID=your-project-id
-# 5. For development without Firebase, set FIREBASE_DEV_BYPASS=True (default)
+# 5. For offline development without Firebase, set FIREBASE_DEV_BYPASS=True (default)
 ```
+
+---
+
+## Secrets & Credentials Security
+
+> [!CAUTION]
+> **CRITICAL SECURITY RULE:** NEVER commit `serviceAccountKey.json`, any `*credentials*.json` file, or `.env` files to git or GitHub. These contain root-level credentials with access to cloud databases, auth services, and billing.
+
+### 1. What Stays Gitignored
+The project `.gitignore` automatically blocks:
+- `*serviceAccount*.json`, `*credentials*.json`, `firebase-adminsdk-*.json`
+- `*.env`, `*.env.local`
+- `*.pem`, `*.key`, `*.p12`
+
+Only template files such as `.env.example` should ever be tracked in version control.
+
+### 2. How to Obtain a Service Account Key
+New team members must generate their own credentials directly from the Firebase Console rather than sharing keys over insecure channels:
+1. Open [Firebase Console](https://console.firebase.google.com/) and navigate to your project.
+2. Click the gear icon (**Project Settings**) &rarr; select the **Service accounts** tab.
+3. Verify that **Firebase Admin SDK** is selected.
+4. Click **Generate new private key**, then confirm by clicking **Generate key**.
+5. Save the downloaded file locally outside of git tracking (e.g. `backend/serviceAccountKey.json`).
+
+### 3. Setting Up the Environment Locally
+In your local `backend/.env` file:
+- **Local Development**: Set the path pointing to your local gitignored file:
+  ```ini
+  FIREBASE_SERVICE_ACCOUNT_PATH=c:/Users/username/Aerogin/backend/serviceAccountKey.json
+  FIREBASE_PROJECT_ID=your-project-id
+  ```
+- **Cloud / CI/CD (Docker, Heroku, Railway, Render)**: Minify the downloaded JSON onto a single line and pass it as an environment variable:
+  ```ini
+  FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...","private_key":"..."}
+  FIREBASE_PROJECT_ID=your-project-id
+  ```
+
+---
 
 ### 2b. Live Data Ingestion & Processing (100% Real-Time Data)
 
@@ -297,6 +340,3 @@ and retrains when the threshold is hit.
 ---
 
 *Built for Smart India Hackathon 2026*
-#   A e r o r i g i n  
- #   A e r o r i g i n  
- 

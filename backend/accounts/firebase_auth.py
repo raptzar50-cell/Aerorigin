@@ -48,39 +48,47 @@ def _get_firebase_app():
     _firebase_init_attempted = True
 
     try:
+        import json
         import firebase_admin
         from firebase_admin import credentials
 
-        key_path = getattr(settings, 'FIREBASE_SERVICE_ACCOUNT_KEY_PATH', '')
+        # 1. First priority: Raw JSON string from environment variable
+        sa_json = getattr(settings, 'FIREBASE_SERVICE_ACCOUNT_JSON', '').strip()
+        if sa_json:
+            try:
+                cert_dict = json.loads(sa_json)
+                cred = credentials.Certificate(cert_dict)
+                _firebase_app = firebase_admin.initialize_app(cred)
+                logger.info('Firebase Admin SDK initialized from FIREBASE_SERVICE_ACCOUNT_JSON env var')
+                return _firebase_app
+            except Exception as e:
+                logger.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: %s', e)
+
+        # 2. Second priority: Local gitignored file path from environment variable
+        key_path = getattr(settings, 'FIREBASE_SERVICE_ACCOUNT_PATH', '') or getattr(
+            settings, 'FIREBASE_SERVICE_ACCOUNT_KEY_PATH', ''
+        )
 
         if key_path and Path(key_path).exists():
             cred = credentials.Certificate(str(key_path))
             _firebase_app = firebase_admin.initialize_app(cred)
-            logger.info('Firebase Admin SDK initialized from service account key')
-        else:
-            # Try default credentials (useful in GCP environments)
-            # or initialize without credentials for development
-            project_id = getattr(settings, 'FIREBASE_PROJECT_ID', '')
-            if project_id:
-                _firebase_app = firebase_admin.initialize_app(
-                    options={'projectId': project_id}
-                )
-                logger.info(
-                    'Firebase Admin SDK initialized with project ID: %s '
-                    '(no service account key — token verification may fail '
-                    'unless running in a GCP environment)',
-                    project_id,
-                )
-            else:
-                logger.warning(
-                    'Firebase Admin SDK not initialized: '
-                    'FIREBASE_SERVICE_ACCOUNT_KEY_PATH not set or file not found, '
-                    'and FIREBASE_PROJECT_ID not set. '
-                    'Set these in .env to enable Firebase auth verification.'
-                )
-                return None
+            logger.info('Firebase Admin SDK initialized from local key path: %s', key_path)
+            return _firebase_app
 
-        return _firebase_app
+        # 3. Third priority: GCP Default Credentials or project ID
+        project_id = getattr(settings, 'FIREBASE_PROJECT_ID', '')
+        if project_id:
+            _firebase_app = firebase_admin.initialize_app(
+                options={'projectId': project_id}
+            )
+            logger.info('Firebase Admin SDK initialized with project ID: %s', project_id)
+            return _firebase_app
+
+        logger.warning(
+            'Firebase Admin SDK not initialized: Neither FIREBASE_SERVICE_ACCOUNT_JSON, '
+            'FIREBASE_SERVICE_ACCOUNT_PATH, nor FIREBASE_PROJECT_ID are configured in .env'
+        )
+        return None
 
     except Exception as e:
         logger.error('Failed to initialize Firebase Admin SDK: %s', e)
@@ -120,7 +128,10 @@ def verify_firebase_token(id_token: str) -> Optional[dict]:
         return decoded
 
     except Exception as e:
-        logger.debug('Firebase token verification failed: %s', e)
+        logger.warning('Firebase token verification error: %s', e)
+        if getattr(settings, 'FIREBASE_DEV_BYPASS', False):
+            logger.info('Falling back to dev bypass token decode because FIREBASE_DEV_BYPASS=True')
+            return _dev_bypass_decode(id_token)
         return None
 
 
