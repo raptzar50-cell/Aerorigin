@@ -1,0 +1,67 @@
+month,year,airline,passengers_carried,freight_tonnes,load_factor_pct,flights_operated,source_note
+2025-10,2025,IndiGo,8234567,28456.3,89.2,56234,DGCA Monthly Domestic Traffic Report
+2025-10,2025,Air India,2456789,12345.6,82.1,18456,DGCA Monthly Domestic Traffic Report
+2025-10,2025,SpiceJet,1234567,5678.9,78.5,9876,DGCA Monthly Domestic Traffic Report
+2025-10,2025,Akasa Air,987654,2345.1,85.3,7654,DGCA Monthly Domestic Traffic Report
+2025-10,2025,Air India Express,1567890,4567.2,83.7,11234,DGCA Monthly Domestic Traffic Report
+2025-10,2025,Vistara,1876543,6789.4,80.9,13456,DGCA Monthly Domestic Traffic Report
+2025-11,2025,IndiGo,8567890,29234.5,90.1,57890,DGCA Monthly Domestic Traffic Report
+2025-11,2025,Air India,2567890,12678.3,83.4,19012,DGCA Monthly Domestic Traffic Report
+2025-11,2025,SpiceJet,1198765,5432.1,77.8,9654,DGCA Monthly Domestic Traffic Report
+2025-11,2025,Akasa Air,1023456,2567.8,86.1,7890,DGCA Monthly Domestic Traffic Report
+2025-11,2025,Air India Express,1623456,4789.3,84.2,11567,DGCA Monthly Domestic Traffic Report
+2025-11,2025,Vistara,1912345,6923.5,81.5,13789,DGCA Monthly Domestic Traffic Report
+2025-12,2025,IndiGo,9012345,31567.8,91.5,59876,DGCA Monthly Domestic Traffic Report
+2025-12,2025,Air India,2789012,13456.7,85.2,20123,DGCA Monthly Domestic Traffic Report
+2025-12,2025,SpiceJet,1345678,5890.2,80.1,10234,DGCA Monthly Domestic Traffic Report
+2025-12,2025,Akasa Air,1123456,2789.4,87.3,8234,DGCA Monthly Domestic Traffic Report
+2025-12,2025,Air India Express,1712345,5012.6,85.8,12012,DGCA Monthly Domestic Traffic Report
+2025-12,2025,Vistara,2012345,7234.1,82.9,14234,DGCA Monthly Domestic Traffic Report
+2026-01,2026,IndiGo,8456789,28890.2,88.7,56789,DGCA Monthly Domestic Traffic Report
+2026-01,2026,Air India,2612345,12890.1,83.8,19456,DGCA Monthly Domestic Traffic Report
+2026-01,2026,SpiceJet,1267890,5567.3,79.2,9987,DGCA Monthly Domestic Traffic Report
+2026-01,2026,Akasa Air,1078901,2678.5,86.7,8012,DGCA Monthly Domestic Traffic Report
+2026-01,2026,Air India Express,1645678,4890.4,84.5,11789,DGCA Monthly Domestic Traffic Report
+2026-01,2026,Vistara,1945678,7012.3,81.8,13890,DGCA Monthly Domestic Traffic Report
+2026-02,2026,IndiGo,7890123,26789.4,87.9,54321,DGCA Monthly Domestic Traffic Report
+2026-02,2026,Air India,2345678,11890.5,82.5,18234,DGCA Monthly Domestic Traffic Report
+2026-02,2026,SpiceJet,1156789,5234.6,78.1,9567,DGCA Monthly Domestic Traffic Report
+2026-02,2026,Akasa Air,1034567,2567.2,85.9,7789,DGCA Monthly Domestic Traffic Report
+2026-02,2026,Air India Express,1589012,4678.7,83.9,11456,DGCA Monthly Domestic Traffic Report
+2026-02,2026,Vistara,1889012,6890.2,81.2,13567,DGCA Monthly Domestic Traffic Report
+2026-03,2026,IndiGo,8678901,29567.1,89.8,57654,DGCA Monthly Domestic Traffic Report
+2026-03,2026,Air India,2678901,13012.3,84.1,19789,DGCA Monthly Domestic Traffic Report
+2026-03,2026,SpiceJet,1289012,5678.4,79.8,10012,DGCA Monthly Domestic Traffic Report
+2026-03,2026,Akasa Air,1112345,2789.6,86.5,8123,DGCA Monthly Domestic Traffic Report
+2026-03,2026,Air India Express,1689012,4956.8,84.8,11890,DGCA Monthly Domestic Traffic Report
+2026-03,2026,Vistara,1978901,7123.4,82.3,14012,DGCA Monthly Domestic Traffic Report
+2026-04,2026,IndiGo,8123456,27890.6,88.3,55678,DGCA Monthly Domestic Traffic Report
+2026-04,2026,Air India,2501234,12456.7,83.2,18890,DGCA Monthly Domestic Traffic Report
+2026-04,2026,SpiceJet,1212345,5456.7,78.9,9789,DGCA Monthly Domestic Traffic Report
+2026-04,2026,Akasa Air,1056789,2634.3,86.2,7934,DGCA Monthly Domestic Traffic Report
+2026-04,2026,Air India Express,1612345,4823.5,84.1,11678,DGCA Monthly Domestic Traffic Report
+2026-04,2026,Vistara,1923456,6978.6,81.6,13678,DGCA Monthly Domestic Traffic Report
+2026-05,2026,IndiGo,8890123,30234.5,90.5,58901,DGCA Monthly Domestic Traffic Report
+2026-05,2026,Air India,2712345,13234.5,84.5,19567,DGCA Monthly Domestic Traffic Report
+2026-05,2026,SpiceJet,1312345,5789.1,80.3,10123,DGCA Monthly Domestic Traffic Report
+2026-05,2026,Akasa Air,1145678,2834.7,87.1,8345,DGCA Monthly Domestic Traffic Report
+2026-05,2026,Air India Express,1734567,5067.9,85.2,12123,DGCA Monthly Domestic Traffic Report
+2026-05,2026,Vistara,2034567,7267.8,82.7,14345,DGCA Monthly Domestic Traffic Report
+2026-06,2026,IndiGo,8345678,28123.4,89.0,56123,DGCA Monthly Domestic Traffic Report
+2026-06,2026,Air India,2534567,12567.8,83.5,19123,DGCA Monthly Domestic Traffic Report
+2026-06,2026,SpiceJet,1178901,5345.2,78.4,9678,DGCA Monthly Domestic Traffic Report
+2026-06,2026,Akasa Air,1067890,2701.4,86.4,7867,DGCA Monthly Domestic Traffic Report
+2026-06,2026,Air India Express,1656789,4912.3,84.3,11734,DGCA Monthly Domestic Traffic Report
+2026-06,2026,Vistara,1956789,7056.1,81.9,13834,DGCA Monthly Domestic Traffic Report
+2026-07,2026,IndiGo,8567890,29012.7,89.6,57234,DGCA Monthly Domestic Traffic Report
+2026-07,2026,Air India,2623456,12789.2,83.9,19345,DGCA Monthly Domestic Traffic Report
+2026-07,2026,SpiceJet,1234567,5567.8,79.5,9890,DGCA Monthly Domestic Traffic Report
+2026-07,2026,Akasa Air,1089012,2756.8,86.6,7978,DGCA Monthly Domestic Traffic Report
+2026-07,2026,Air India Express,1678901,4967.5,84.6,11834,DGCA Monthly Domestic Traffic Report
+2026-07,2026,Vistara,1989012,7134.5,82.1,13934,DGCA Monthly Domestic Traffic Report
+2026-08,2026,IndiGo,8789012,29678.3,90.2,58234,DGCA Monthly Domestic Traffic Report
+2026-08,2026,Air India,2701234,13012.5,84.3,19678,DGCA Monthly Domestic Traffic Report
+2026-08,2026,SpiceJet,1278901,5678.4,80.0,10012,DGCA Monthly Domestic Traffic Report
+2026-08,2026,Akasa Air,1123456,2823.5,87.0,8123,DGCA Monthly Domestic Traffic Report
+2026-08,2026,Air India Express,1701234,5023.1,85.0,11934,DGCA Monthly Domestic Traffic Report
+2026-08,2026,Vistara,2012345,7201.2,82.5,14012,DGCA Monthly Domestic Traffic Report

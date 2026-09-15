@@ -1,0 +1,29 @@
+Job 1:
+Timeout waiting for results to load.
+----------------------------------------
+Job 2:
+BrowserType.launch: Executable doesn't exist at C:\Users\hp\AppData\Local\ms-playwright\chromium_headless_shell-1234\chrome-headless-shell-win64\chrome-headless-shell.exe
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     playwright install                                     ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+----------------------------------------
+Job 3:
+Page.goto: net::ERR_HTTP2_PROTOCOL_ERROR at https://flight.yatra.com/air-search-ui/dom2/trigger?type=O&viewName=normal&flexi=0&noOfSegments=1&origin=DEL&originCountry=IN&destination=BOM&destinationCountry=IN&flight_depart_date=15/09/2026&ADT=1&CHD=0&INF=0&class=Economy&source=fresco-home
+Call log:
+  - navigating to "https://flight.yatra.com/air-search-ui/dom2/trigger?type=O&viewName=normal&flexi=0&noOfSegments=1&origin=DEL&originCountry=IN&destination=BOM&destinationCountry=IN&flight_depart_date=15/09/2026&ADT=1&CHD=0&INF=0&class=Economy&source=fresco-home", waiting until "domcontentloaded"
+
+----------------------------------------
+Job 4:
+None
+----------------------------------------
+Job 5:
+Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to "https://flight.yatra.com/air-search-ui/dom2/trigger?type=O&viewName=normal&flexi=0&noOfSegments=1&origin=UDR&originCountry=IN&destination=DEL&destinationCountry=IN&flight_depart_date=15/09/2026&ADT=1&CHD=0&INF=0&class=Economy&source=fresco-home", waiting until "domcontentloaded"
+
+----------------------------------------

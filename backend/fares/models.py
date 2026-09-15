@@ -1,0 +1,668 @@
+"""
+Data models for the Airfare Price Index system.
+
+Three-table pipeline architecture:
+  RawFare  →  CleanFare  →  PriceIndex
+  (scraper)   (cleaning)    (analytics)
+"""
+
+import uuid
+from django.db import models
+
+
+class RawFare(models.Model):
+    """
+    Raw fare observation as captured by a scraper (or synthetic seed).
+
+    This table's schema is CONTRACTUAL — the future real scraper (from a
+    separate Git repo) will write directly into this table in exactly this
+    shape. Do not change field names or types without coordinating with
+    the scraper team.
+
+    # TODO: SCRAPER-INTEGRATION — The real scraper will INSERT rows into
+    # this table via Django ORM or a direct database connection. The
+    # `source` field identifies which scraper/provider produced the record.
+    # The `raw_payload` JSONField stores the full raw response for debugging
+    # and audit purposes.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source = models.CharField(
+        max_length=50,
+        help_text='Data source identifier (e.g., "AirlineA", "OTA_X")',
+        db_index=True,
+    )
+    origin = models.CharField(
+        max_length=3,
+        help_text='IATA airport code for origin (e.g., "DEL")',
+        db_index=True,
+    )
+    destination = models.CharField(
+        max_length=3,
+        help_text='IATA airport code for destination (e.g., "BOM")',
+        db_index=True,
+    )
+    departure_date = models.DateField(
+        help_text='Scheduled departure date for this fare',
+        db_index=True,
+    )
+    fare_raw = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Base fare amount before taxes',
+    )
+    taxes_raw = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Tax/fee amount',
+    )
+    currency = models.CharField(
+        max_length=3,
+        default='INR',
+        help_text='ISO 4217 currency code',
+    )
+    scraped_at = models.DateTimeField(
+        help_text='Timestamp when this fare was scraped/observed',
+        db_index=True,
+    )
+    raw_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Full raw response from the scraper for debugging',
+    )
+
+    class Meta:
+        ordering = ['-scraped_at']
+        indexes = [
+            models.Index(fields=['origin', 'destination', 'departure_date']),
+            models.Index(fields=['scraped_at']),
+        ]
+        verbose_name = 'Raw Fare'
+        verbose_name_plural = 'Raw Fares'
+
+    def __str__(self):
+        return f'{self.origin}-{self.destination} ₹{self.fare_raw} ({self.source}, {self.scraped_at.date()})'
+
+    @property
+    def route(self):
+        return f'{self.origin}-{self.destination}'
+
+
+class CleanFare(models.Model):
+    """
+    Cleaned, normalized fare with anomaly detection flags.
+
+    Produced by the cleaning pipeline (run_cleaning_pipeline management
+    command) which reads from RawFare, normalizes values, computes derived
+    fields, and runs anomaly detection.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    raw_fare = models.OneToOneField(
+        RawFare,
+        on_delete=models.CASCADE,
+        related_name='clean',
+        help_text='Link back to the original raw observation',
+    )
+    source = models.CharField(max_length=50, db_index=True)
+    origin = models.CharField(max_length=3, db_index=True)
+    destination = models.CharField(max_length=3, db_index=True)
+    departure_date = models.DateField(db_index=True)
+    lead_time_days = models.IntegerField(
+        help_text='Days between scrape date and departure date',
+        db_index=True,
+    )
+    total_fare = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='fare_raw + taxes_raw (total price paid)',
+    )
+    is_valid = models.BooleanField(
+        default=True,
+        help_text='False if this record is a duplicate or corrupt',
+        db_index=True,
+    )
+    quality_flags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of quality/anomaly flags, e.g. ["price_outlier", "statistical_outlier"]',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-departure_date']
+        indexes = [
+            models.Index(fields=['origin', 'destination', 'departure_date']),
+            models.Index(fields=['is_valid']),
+        ]
+        verbose_name = 'Clean Fare'
+        verbose_name_plural = 'Clean Fares'
+
+    def __str__(self):
+        flags = ', '.join(self.quality_flags) if self.quality_flags else 'clean'
+        return f'{self.origin}-{self.destination} ₹{self.total_fare} [{flags}]'
+
+    @property
+    def route(self):
+        return f'{self.origin}-{self.destination}'
+
+
+class PriceIndex(models.Model):
+    """
+    Computed price index values (CPI-style, base period = 100).
+
+    Generated by the compute_price_index management command. Supports
+    daily, weekly, and monthly rollup periods. When `route` is NULL,
+    the row represents the national aggregate index.
+    """
+
+    PERIOD_CHOICES = [
+        ('daily', 'Daily'),
+        ('weekly', 'Weekly'),
+        ('monthly', 'Monthly'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    index_date = models.DateField(
+        help_text='Date (or period start date) for this index value',
+        db_index=True,
+    )
+    route = models.CharField(
+        max_length=7,
+        null=True,
+        blank=True,
+        help_text='Route code (e.g., "DEL-BOM") or NULL for national aggregate',
+        db_index=True,
+    )
+    index_value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text='Index value (base period = 100)',
+    )
+    avg_fare = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Average fare for this date/route/period',
+    )
+    sample_size = models.IntegerField(
+        help_text='Number of fare observations in this calculation',
+    )
+    period_type = models.CharField(
+        max_length=10,
+        choices=PERIOD_CHOICES,
+        default='daily',
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['index_date']
+        indexes = [
+            models.Index(fields=['index_date', 'route', 'period_type']),
+        ]
+        unique_together = [['index_date', 'route', 'period_type']]
+        verbose_name = 'Price Index'
+        verbose_name_plural = 'Price Indices'
+
+    def __str__(self):
+        route_label = self.route or 'National'
+        return f'{route_label} {self.index_date} → {self.index_value} ({self.period_type})'
+
+
+class AnomalyModelVersion(models.Model):
+    """
+    Tracks anomaly detector model versions with training parameters and
+    evaluation metrics.
+
+    Each time the detector is retrained (via `train_anomaly_detector`),
+    a new version row is created with:
+    - The fitted parameters (per-route means, stds, thresholds)
+    - Evaluation metrics (precision, recall, F1) against known anomalies
+    - Record count and training timestamp
+
+    The cleaning pipeline always uses the LATEST active model version.
+    """
+
+    version = models.IntegerField(
+        help_text='Auto-incremented model version number (training run)',
+    )
+    route = models.CharField(
+        max_length=7,
+        null=True,
+        blank=True,
+        help_text='Route code (e.g., "DEL-BOM") or NULL for global',
+        db_index=True,
+    )
+    model_blob = models.BinaryField(
+        null=True,
+        blank=True,
+        help_text='Pickled PyOD model object',
+    )
+    contamination = models.FloatField(
+        null=True,
+        blank=True,
+        help_text='Tuned contamination parameter',
+    )
+    trained_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When this model was trained',
+    )
+    record_count = models.IntegerField(
+        help_text='Number of CleanFare records used for training',
+    )
+    parameters = models.JSONField(
+        default=dict,
+        help_text='Fitted model parameters (per-route stats, thresholds)',
+    )
+    metrics = models.JSONField(
+        default=dict,
+        help_text='Evaluation metrics (precision, recall, f1, accuracy)',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text='Whether this is the currently active model version',
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text='Optional notes about this training run',
+    )
+
+    class Meta:
+        ordering = ['-version', 'route']
+        unique_together = [['version', 'route']]
+        verbose_name = 'Anomaly Model Version'
+        verbose_name_plural = 'Anomaly Model Versions'
+
+    def __str__(self):
+        status = '✓ ACTIVE' if self.is_active else 'inactive'
+        route_lbl = self.route or 'Global'
+        metrics_str = ''
+        if self.metrics:
+            f1 = self.metrics.get('f1_score')
+            if f1 is not None:
+                metrics_str = f' F1={f1:.1%}'
+        return f'Model v{self.version} {route_lbl} ({self.record_count} records{metrics_str}) [{status}]'
+
+    @classmethod
+    def get_active(cls):
+        """Return the currently active model version, or None."""
+        return cls.objects.filter(is_active=True).first()
+
+    @classmethod
+    def get_next_version(cls):
+        """Return the next version number."""
+        latest = cls.objects.order_by('-version').first()
+        return (latest.version + 1) if latest else 1
+
+
+class FarePrediction(models.Model):
+    """
+    Forecast output from the Chronos-2 predictor (Stage 2 of the pipeline).
+
+    Each row represents one forecasted date for one route. Includes
+    probabilistic bounds (not just a point estimate) because showing
+    uncertainty is more credible than a bare number.
+
+    Generated by the `run_prediction_cycle` management command, which
+    pulls anomaly-screened trusted history from Stage 1 and feeds it
+    through Chronos-2's zero-shot forecasting.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.CharField(
+        max_length=7,
+        help_text='Route code (e.g., "DEL-BOM")',
+        db_index=True,
+    )
+    forecast_date = models.DateField(
+        help_text='The date being forecasted',
+        db_index=True,
+    )
+    predicted_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Median forecast (50th percentile)',
+    )
+    lower_bound = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Lower bound (10th percentile — 80% prediction interval)',
+    )
+    upper_bound = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Upper bound (90th percentile — 80% prediction interval)',
+    )
+    generated_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When this forecast was generated',
+    )
+    model_name = models.CharField(
+        max_length=100,
+        default='chronos-2',
+        help_text='Name of the model that produced this forecast',
+    )
+
+    class Meta:
+        ordering = ['route', 'forecast_date']
+        indexes = [
+            models.Index(fields=['route', 'forecast_date']),
+        ]
+        unique_together = [['route', 'forecast_date', 'model_name']]
+        verbose_name = 'Fare Prediction'
+        verbose_name_plural = 'Fare Predictions'
+
+    def __str__(self):
+        return (
+            f'{self.route} {self.forecast_date} → '
+            f'₹{self.predicted_value} '
+            f'[₹{self.lower_bound}–₹{self.upper_bound}] '
+            f'({self.model_name})'
+        )
+
+
+class GovernmentDataPoint(models.Model):
+    """
+    Aggregate statistics from DGCA and MoSPI — stored separately from
+    individual fare quotes in RawFare.
+
+    Used for:
+    - Cross-referencing/validating the airfare price index against
+      official government statistics
+    - Displaying DGCA passenger traffic trends alongside fare trends
+    - Comparing our computed index against MoSPI's CPI transport sub-index
+
+    Sources:
+    - dgca_traffic: Monthly domestic passenger traffic (passengers, load factor)
+    - dgca_avg_fare: DGCA published average fare data by route
+    - mospi_cpi: CPI sub-indices (general, transport, air transport)
+
+    Each record represents one metric for one period. The `dimensions`
+    JSONField stores contextual keys (airline, route, category) that vary
+    by source.
+    """
+
+    SOURCE_CHOICES = [
+        ('dgca_traffic', 'DGCA Passenger Traffic'),
+        ('dgca_avg_fare', 'DGCA Average Fare'),
+        ('mospi_cpi', 'MoSPI CPI Index'),
+    ]
+
+    PERIOD_CHOICES = [
+        ('monthly', 'Monthly'),
+        ('quarterly', 'Quarterly'),
+        ('annual', 'Annual'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source = models.CharField(
+        max_length=50,
+        choices=SOURCE_CHOICES,
+        help_text='Data source identifier',
+        db_index=True,
+    )
+    metric_name = models.CharField(
+        max_length=100,
+        help_text='Metric name (e.g., "passengers_carried", "avg_fare_inr", "cpi_transport")',
+        db_index=True,
+    )
+    metric_value = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        help_text='Numeric value of the metric',
+    )
+    period_start = models.DateField(
+        help_text='Start date of the reporting period',
+        db_index=True,
+    )
+    period_end = models.DateField(
+        help_text='End date of the reporting period',
+    )
+    period_type = models.CharField(
+        max_length=10,
+        choices=PERIOD_CHOICES,
+        default='monthly',
+    )
+    dimensions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Contextual dimensions: {"airline": "IndiGo"}, {"route": "DEL-BOM"}, etc.',
+    )
+    fetched_at = models.DateTimeField(
+        help_text='When this data point was fetched/loaded',
+    )
+    raw_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Source metadata, includes {"fixture": true/false}',
+    )
+
+    class Meta:
+        ordering = ['-period_start']
+        indexes = [
+            models.Index(fields=['source', 'metric_name', 'period_start']),
+            models.Index(fields=['period_start']),
+        ]
+        unique_together = [
+            ['source', 'metric_name', 'period_start', 'dimensions'],
+        ]
+        verbose_name = 'Government Data Point'
+        verbose_name_plural = 'Government Data Points'
+
+    def __str__(self):
+        dims = ', '.join(f'{k}={v}' for k, v in (self.dimensions or {}).items())
+        return (
+            f'{self.source}/{self.metric_name}: {self.metric_value} '
+            f'({self.period_start} → {self.period_end}) [{dims}]'
+        )
+
+
+class IndexForecast(models.Model):
+    """
+    Chronos-2 forecast of the PRICE INDEX (not raw fares).
+
+    Reframed for MoSPI stakeholders: instead of predicting individual
+    flight prices for personal trips, this forecasts the national and
+    per-route airfare price index — directly relevant to inflation/CPI
+    analysis.
+
+    Each row is one forecasted date for one route (or national aggregate
+    when route is NULL). Includes quantile intervals because statisticians
+    specifically care about confidence intervals, not just point forecasts.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.CharField(
+        max_length=7,
+        null=True,
+        blank=True,
+        help_text='Route code (e.g., "DEL-BOM") or NULL for national aggregate',
+        db_index=True,
+    )
+    forecast_date = models.DateField(
+        help_text='The date being forecasted',
+        db_index=True,
+    )
+    predicted_index = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text='Median forecast of the price index (50th percentile)',
+    )
+    lower_bound = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text='Lower bound (10th percentile — 80% prediction interval)',
+    )
+    upper_bound = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text='Upper bound (90th percentile — 80% prediction interval)',
+    )
+    pct_change_from_latest = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Predicted percentage change from latest known index value',
+    )
+    cpi_impact_note = models.TextField(
+        blank=True,
+        default='',
+        help_text=(
+            'Illustrative CPI impact note, e.g., "A projected 3.2% increase '
+            'could contribute ~0.07 points to the CPI transport sub-index"'
+        ),
+    )
+    generated_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='When this forecast was generated',
+    )
+    model_name = models.CharField(
+        max_length=100,
+        default='chronos-2',
+        help_text='Name of the model that produced this forecast',
+    )
+
+    class Meta:
+        ordering = ['route', 'forecast_date']
+        indexes = [
+            models.Index(fields=['route', 'forecast_date']),
+        ]
+        unique_together = [['route', 'forecast_date', 'model_name']]
+        verbose_name = 'Index Forecast'
+        verbose_name_plural = 'Index Forecasts'
+
+    def __str__(self):
+        route_label = self.route or 'National'
+        return (
+            f'{route_label} {self.forecast_date} → '
+            f'Index {self.predicted_index} '
+            f'[{self.lower_bound}–{self.upper_bound}] '
+            f'({self.model_name})'
+        )
+
+
+class ForecastAccuracyLog(models.Model):
+    """
+    Track predicted vs. actual index values for forecast accuracy evaluation.
+
+    This is the INFRASTRUCTURE for demonstrating forecast accuracy tracking
+    over time. Even if there's limited data during the hackathon, having
+    this table and the evaluation pipeline shows judges that we've built
+    the mechanism for ongoing accuracy monitoring.
+
+    Populated by:
+    - run_index_forecast: creates entries with predicted values
+    - evaluate_forecast_accuracy: fills in actual values once they're available
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.CharField(
+        max_length=7,
+        null=True,
+        blank=True,
+        help_text='Route code or NULL for national aggregate',
+        db_index=True,
+    )
+    forecast_date = models.DateField(
+        help_text='The date that was forecasted',
+        db_index=True,
+    )
+    predicted_index = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        help_text='The predicted index value',
+    )
+    actual_index = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='The actual index value (filled in after the date passes)',
+    )
+    error = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Absolute error: |predicted - actual|',
+    )
+    error_pct = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Percentage error: |predicted - actual| / actual × 100',
+    )
+    within_interval = models.BooleanField(
+        null=True,
+        help_text='Whether the actual value fell within the prediction interval',
+    )
+    lower_bound = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    upper_bound = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    generated_at = models.DateTimeField(
+        help_text='When the prediction was generated',
+    )
+    evaluated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the accuracy was evaluated (actual value filled in)',
+    )
+    model_name = models.CharField(
+        max_length=100,
+        default='chronos-2',
+    )
+
+    class Meta:
+        ordering = ['-forecast_date']
+        indexes = [
+            models.Index(fields=['route', 'forecast_date']),
+            models.Index(fields=['evaluated_at']),
+        ]
+        unique_together = [['route', 'forecast_date', 'model_name']]
+        verbose_name = 'Forecast Accuracy Log'
+        verbose_name_plural = 'Forecast Accuracy Logs'
+
+    def __str__(self):
+        route_label = self.route or 'National'
+        status = f'error={self.error_pct:.1f}%' if self.error_pct is not None else 'pending'
+        return f'{route_label} {self.forecast_date}: predicted={self.predicted_index} [{status}]'
+
+
+class HistoricalBookingCurve(models.Model):
+    """
+    Historical booking curve data used for seeding predictions.
+    Imported from the static dataset.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    route = models.CharField(max_length=50, db_index=True)
+    airline = models.CharField(max_length=100, db_index=True)
+    flight_class = models.CharField(max_length=50, db_index=True)
+    days_left = models.IntegerField(db_index=True)
+    duration = models.DecimalField(max_digits=5, decimal_places=2)
+    stops = models.CharField(max_length=50)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    imported_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['route', 'days_left']
+        indexes = [
+            models.Index(fields=['route', 'airline', 'flight_class', 'days_left']),
+        ]
+        unique_together = [['route', 'airline', 'flight_class', 'days_left', 'price']]
+        verbose_name = 'Historical Booking Curve'
+        verbose_name_plural = 'Historical Booking Curves'
+
+    def __str__(self):
+        return f"{self.route} ({self.airline}) {self.days_left}d: ₹{self.price}"

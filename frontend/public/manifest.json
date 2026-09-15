@@ -1,0 +1,24 @@
+{
+  "name": "Aerogin - Airfare Price Index",
+  "short_name": "Aerogin",
+  "description": "Real-Time Airfare Price Index Dashboard for Indian domestic routes. CPI-style analytics powered by web scraping.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1D1D1B",
+  "theme_color": "#FFE600",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
